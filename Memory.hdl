@@ -1,0 +1,66 @@
+// Memory.hdl - Hack memory map
+// 0..16383: RAM16K
+// 16384..24575: Screen
+// 24576: Keyboard
+
+CHIP Memory {
+    IN in[16], load, address[15];
+    OUT out[16];
+
+    PARTS:
+
+    Not(in=address[14], out=notA14);
+    Not(in=address[13], out=notA13);
+
+    // RAM16K selection
+    And(a=load, b=notA14, out=loadRAM);
+
+    RAM16K(
+        in=in,
+        load=loadRAM,
+        address=address[0..13],
+        out=ramOut
+    );
+
+    // Screen selection
+    And(a=address[14], b=notA13, out=screenSelected);
+    And(a=load, b=screenSelected, out=loadScreen);
+
+    Screen(
+        in=in,
+        load=loadScreen,
+        address=address[0..12],
+        out=screenOut
+    );
+
+    // Keyboard selection: address 24576
+    Or8Way(in=address[0..7], out=lowAny0);
+
+    Or(a=address[8], b=address[9], out=lowA);
+    Or(a=address[10], b=address[11], out=lowB);
+    Or(a=lowA, b=lowB, out=lowC);
+    Or(a=lowC, b=address[12], out=lowAny1);
+
+    Or(a=lowAny0, b=lowAny1, out=lowAny);
+    Not(in=lowAny, out=lowZero);
+
+    And(a=address[14], b=address[13], out=topTwo);
+    And(a=topTwo, b=lowZero, out=keyboardSelected);
+
+    Keyboard(out=keyboardOut);
+
+    // Select memory output
+    Mux16(
+        a=ramOut,
+        b=screenOut,
+        sel=address[14],
+        out=ramOrScreen
+    );
+
+    Mux16(
+        a=ramOrScreen,
+        b=keyboardOut,
+        sel=keyboardSelected,
+        out=out
+    );
+}
